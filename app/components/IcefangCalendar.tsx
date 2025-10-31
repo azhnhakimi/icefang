@@ -8,7 +8,7 @@ import {
   subDays,
   subMonths,
 } from "date-fns";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import IcefangCalendarHeader from "./IcefangCalendarHeader";
 import IcefangCalendarMonthView from "./IcefangCalendarMonthView";
 import IcefangCalendarWeekView from "./IcefangCalendarWeekView";
@@ -23,14 +23,45 @@ type CalendarEvent = {
   category?: string;
 };
 
+interface Event {
+  _id: string;
+  name: string;
+  description: string;
+  date: string;
+  startTime: string;
+  endTime?: string;
+  location?: string;
+  category: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 type CalendarProps = {
   events?: CalendarEvent[];
 };
 
-const IcefangCalendar = ({ events = [] }: CalendarProps) => {
+const IcefangCalendar = () => {
+  const [events, setEvent] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const today = new Date();
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const res = await fetch("/api/calendar");
+        if (!res.ok) throw new Error("Failed to fetch tasks");
+        const data = await res.json();
+        setEvent(data);
+      } catch (err) {
+        console.error("Error fetching tasks:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchEvents();
+  }, []);
 
   const handlePrev = () => {
     if (view === "month") setCurrentDate(subMonths(currentDate, 1));
