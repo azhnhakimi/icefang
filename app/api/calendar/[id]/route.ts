@@ -7,9 +7,10 @@ import Event from "@/models/Event";
 // GET /api/calendar/:id
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -17,13 +18,14 @@ export async function GET(
 
     await connectDB();
     const event = await Event.findOne({
-      _id: params.id,
+      _id: id,
       userId: session.user.id,
     });
 
     if (!event) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
+
     return NextResponse.json(event);
   } catch (err) {
     console.error("GET /api/calendar/[id] error:", err);
@@ -37,10 +39,10 @@ export async function GET(
 // PATCH /api/calendar/:id
 export async function PATCH(
   req: Request,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await context.params;
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -70,10 +72,10 @@ export async function PATCH(
 // DELETE /api/calendar/:id
 export async function DELETE(
   req: Request,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const params = await context.params;
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -81,7 +83,7 @@ export async function DELETE(
     await connectDB();
 
     const deletedEvent = await Event.findOneAndDelete({
-      _id: params.id,
+      _id: id,
       userId: session.user.id,
     });
 
