@@ -63,6 +63,12 @@ const IcefangCalendar = () => {
     fetchEvents();
   }, []);
 
+  const handleEventDelete = (deletedEventId: string) => {
+    setEvent((prevEvents) =>
+      prevEvents.filter((event) => event._id !== deletedEventId)
+    );
+  };
+
   const handlePrev = () => {
     if (view === "month") setCurrentDate(subMonths(currentDate, 1));
     else if (view === "week") setCurrentDate(subDays(currentDate, 7));
@@ -98,13 +104,25 @@ const IcefangCalendar = () => {
       />
       <div>
         {view === "month" && (
-          <IcefangCalendarMonthView events={events} currentDate={currentDate} />
+          <IcefangCalendarMonthView
+            events={events}
+            currentDate={currentDate}
+            onEventDelete={handleEventDelete}
+          />
         )}
         {view === "week" && (
-          <IcefangCalendarWeekView events={events} currentDate={currentDate} />
+          <IcefangCalendarWeekView
+            events={events}
+            currentDate={currentDate}
+            onEventDelete={handleEventDelete}
+          />
         )}
         {view === "day" && (
-          <IcefangCalendarDayView events={events} currentDate={currentDate} />
+          <IcefangCalendarDayView
+            events={events}
+            currentDate={currentDate}
+            onEventDelete={handleEventDelete}
+          />
         )}
       </div>
     </div>

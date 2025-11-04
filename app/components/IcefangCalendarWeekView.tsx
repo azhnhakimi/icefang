@@ -12,39 +12,84 @@ import {
   isBefore,
 } from "date-fns";
 import React, { useEffect, useState } from "react";
-import { Calendar, Clock, MapPin, Tag } from "lucide-react";
+import { Calendar, Circle, Clock, Pencil, Trash, X } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { formatTime } from "./IcefangCalendarMonthView";
+import { useRouter } from "next/navigation";
 
 type CalendarEvent = {
+  _id: string;
   name: string;
+  description?: string;
   date: string;
   startTime: string;
   endTime?: string;
   location?: string;
-  category?: string;
+  category: string;
 };
 
 type CalendarProps = {
   events?: CalendarEvent[];
   currentDate: Date;
+  onEventDelete: (id: string) => void;
 };
 
 const ICON_SIZE = 16;
 
+const CategoryColorMap: Record<string, string> = {
+  personal: "#9333ea",
+  work: "#ea580c",
+  fitness: "#059669",
+};
+
 const IcefangCalendarWeekView = ({
   events = [],
   currentDate,
+  onEventDelete,
 }: CalendarProps) => {
   const today = new Date();
   const start = startOfWeek(currentDate);
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const hourHeight = 80; // px per hour
+  const router = useRouter();
 
+  const [eventsList, setEventsList] = useState<CalendarEvent[]>(events || []);
   const [showModal, setShowModal] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
     null
   );
   const [currentTimeTop, setCurrentTimeTop] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    if (events) setEventsList(events);
+  }, [events]);
+
+  const handleEdit = (id: string) => {
+    router.push(`/calendar/${id}/edit`);
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/calendar/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete event");
+      onEventDelete(id);
+      closeModal();
+      setShowDeleteConfirmModal(false);
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong deleting the event");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // ⏰ Update current time line every minute
   useEffect(() => {
@@ -66,6 +111,7 @@ const IcefangCalendarWeekView = ({
   const closeModal = () => {
     setShowModal(false);
     setSelectedEvent(null);
+    setShowDeleteConfirmModal(false);
   };
 
   // --- Handle overlapping events ---
@@ -138,7 +184,7 @@ const IcefangCalendarWeekView = ({
 
         {/* Day columns */}
         {days.map((day) => {
-          const dayEvents = events.filter(
+          const dayEvents = eventsList.filter(
             (event) =>
               format(new Date(event.date), "yyyy-MM-dd") ===
               format(day, "yyyy-MM-dd")
@@ -189,11 +235,15 @@ const IcefangCalendarWeekView = ({
                       key={`${gIdx}-${idx}`}
                       onClick={() => openEventModal(event)}
                       className={cn(
-                        "absolute z-10 rounded-md bg-[var(--primary-dark)] p-1 text-[10px] font-medium text-white shadow-sm cursor-pointer overflow-hidden hover:opacity-90 transition",
+                        "absolute z-10 rounded-md p-1 text-[10px] font-medium text-white shadow-sm cursor-pointer overflow-hidden hover:opacity-90 transition",
                         {
-                          "bg-orange-600": event.category === "Work",
-                          "bg-emerald-700": event.category === "Fitness",
-                          "bg-purple-700": event.category === "Personal",
+                          "bg-orange-600":
+                            event.category?.toLowerCase() === "work",
+                          "bg-emerald-600":
+                            event.category?.toLowerCase() === "fitness",
+                          "bg-purple-600":
+                            event.category?.toLowerCase() === "personal",
+                          "bg-[var(--primary-dark)]": !event.category,
                         }
                       )}
                       style={{
@@ -227,40 +277,119 @@ const IcefangCalendarWeekView = ({
       {/* Modal */}
       {showModal && selectedEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-[90%] max-w-md relative">
-            <button
-              onClick={closeModal}
-              className="absolute top-3 right-3 text-gray-500 hover:text-black hover:cursor-pointer"
-            >
-              ✕
-            </button>
+          <div className="bg-white rounded-lg shadow-lg p-6 w-[90%] max-w-md">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-semibold mb-2 flex-1">
+                {selectedEvent.name}
+              </h2>
+              <div className="flex justify-end items-center gap-3">
+                <Tooltip>
+                  <TooltipTrigger
+                    onClick={() => handleEdit(selectedEvent._id)}
+                    className="text-gray-500 hover:text-blue-500 hover:cursor-pointer transition-all"
+                  >
+                    <Pencil size={19} />
+                  </TooltipTrigger>
+                  <TooltipContent>Edit</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    onClick={() => setShowDeleteConfirmModal(true)}
+                    className="text-gray-500 hover:text-red-600 hover:cursor-pointer transition-all"
+                  >
+                    <Trash size={19} />
+                  </TooltipTrigger>
+                  <TooltipContent>Delete</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    onClick={closeModal}
+                    className="text-gray-500 hover:text-gray-900 hover:cursor-pointer transition-all"
+                  >
+                    <X size={22} />
+                  </TooltipTrigger>
+                  <TooltipContent>Close</TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
 
-            <h2 className="text-lg font-semibold mb-2">{selectedEvent.name}</h2>
+            <div className="flex justify-start items-center gap-2 mb-4">
+              <Circle
+                size={10}
+                style={{
+                  color: CategoryColorMap[selectedEvent.category] || "#9ca3af",
+                  fill: CategoryColorMap[selectedEvent.category] || "#9ca3af",
+                }}
+              />
+              <p className="capitalize text-sm text-gray-600">
+                {selectedEvent.category}
+              </p>
+            </div>
 
             <p className="text-sm text-gray-600 mb-2 flex items-center gap-2">
               <Calendar size={ICON_SIZE} />
               {format(new Date(selectedEvent.date), "PPP")}
             </p>
 
-            <p className="text-sm text-gray-600 mb-2 flex items-center gap-2">
+            <p className="text-sm text-gray-600 mb-3 flex items-center gap-2">
               <Clock size={ICON_SIZE} />
-              {selectedEvent.startTime}
-              {selectedEvent.endTime ? ` - ${selectedEvent.endTime}` : ""}
+              {formatTime(selectedEvent.startTime)}
+              {selectedEvent.endTime
+                ? ` - ${formatTime(selectedEvent.endTime)}`
+                : ""}
+            </p>
+            <div className="bg-gray-300 w-full h-[1px] mb-3"></div>
+            {selectedEvent.description && (
+              <div className="mb-3">
+                <p className="text-gray-600 font-semibold text-md">
+                  Description
+                </p>
+                <p className="text-sm text-gray-500">
+                  {selectedEvent.description}
+                </p>
+              </div>
+            )}
+            <div>
+              <p className="text-gray-600 font-semibold text-md">Location</p>
+              <p className="text-sm text-gray-500">{selectedEvent.location}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirmModal && selectedEvent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-80 relative animate-fadeIn">
+            <button
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 hover:cursor-pointer"
+              onClick={() => setShowDeleteConfirmModal(false)}
+            >
+              <X size={18} />
+            </button>
+
+            <h2 className="text-lg font-semibold mb-3 text-gray-800">
+              Delete Event
+            </h2>
+            <p className="text-sm text-gray-500 mb-6">
+              Are you sure you want to delete <b>{selectedEvent.name}</b>? This
+              action cannot be undone.
             </p>
 
-            {selectedEvent.location && (
-              <p className="text-sm text-gray-600 mb-2 flex items-center gap-2">
-                <MapPin size={ICON_SIZE} />
-                {selectedEvent.location}
-              </p>
-            )}
-
-            {selectedEvent.category && (
-              <p className="text-sm text-gray-600 mb-3 flex items-center gap-2">
-                <Tag size={ICON_SIZE} />
-                {selectedEvent.category}
-              </p>
-            )}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteConfirmModal(false)}
+                className="px-4 py-2 rounded-lg border text-gray-700 hover:bg-gray-100 hover:cursor-pointer transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(selectedEvent._id)}
+                disabled={deleting}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 hover:cursor-pointer transition-all"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -45,6 +45,7 @@ type CalendarEvent = {
 type CalendarProps = {
   events?: CalendarEvent[];
   currentDate: Date;
+  onEventDelete: (id: string) => void;
 };
 
 export function formatTime(time24: string): string {
@@ -64,7 +65,11 @@ const CategoryColorMap: Record<string, string> = {
   fitness: "#059669",
 };
 
-const IcefangCalendarMonthView = ({ events, currentDate }: CalendarProps) => {
+const IcefangCalendarMonthView = ({
+  events,
+  currentDate,
+  onEventDelete,
+}: CalendarProps) => {
   const today = new Date();
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(monthStart);
@@ -93,7 +98,7 @@ const IcefangCalendarMonthView = ({ events, currentDate }: CalendarProps) => {
     try {
       const res = await fetch(`/api/calendar/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete event");
-      setEventsList((prev) => prev.filter((event) => event._id !== id));
+      onEventDelete(id);
       setActiveModalId(null);
     } catch (err) {
       console.error(err);
